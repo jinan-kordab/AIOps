@@ -72,6 +72,9 @@ This proposed AIOps architecture provides a comprehensive framework for automati
 
 # AIOps Proposed Customer Feedback Categorization Workflow © Jinan Kordab
 
+Azure Proposed AIOps Customer Feedback Categorization Workflow
+![Azure Customer Feedback Categorization Workflow](https://github.com/jinan-kordab/AIOps/blob/main/AZURE.png)
+
 AWS Proposed AIOps Customer Feedback Categorization Workflow
 ![AWS Customer Feedback Categorization Workflow](https://github.com/jinan-kordab/AIOps/blob/main/AWS.png)
 
