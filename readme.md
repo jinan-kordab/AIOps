@@ -69,3 +69,13 @@ The AIOps architecture incorporates automated incident management to handle dete
 The final phase involves human interaction and interpretation of AI outputs. Tools like Servicenow and Splunk integrate human interaction through workflows and systems. Servicenow facilitates task management and incident response workflows, while Splunk employs machine learning for enhanced insights and provides human-readable reports. Human expertise combines with AI findings to improve models and ensure they align with real-world scenarios, enhancing the interpretability and reliability of AI outputs. This phase also involves the evaluation of key business parameters to ensure alignment with goals such as transaction processing and service-level agreement adherence.
 ### Conclusion
 This proposed AIOps architecture provides a comprehensive framework for automating and enhancing IT operations through data collection, storage, AI processing, visualization, automated incident management, and human interaction. By leveraging advanced tools and methodologies, it aims to improve system reliability, efficiency, and overall performance.
+
+# AIOps Proposed Customer Feedback Categorization Workflow © Jinan Kordab
+
+AWS Proposed AIOps Customer Feedback Categorization Workflow
+![AWS Customer Feedback Categorization Workflow](https://github.com/jinan-kordab/AIOps/blob/main/AWS.png)
+
+IBM Proposed AIOps Customer Feedback Categorization Workflow
+![IBM Customer Feedback Categorization Workflow](https://github.com/jinan-kordab/AIOps/blob/main/IBM.png)
+
+
