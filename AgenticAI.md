@@ -109,4 +109,4 @@ We will create **two Azure Functions**:
 
 ## 📊 Sequence Diagram
 
-![Alt text](https://github.com/jinan-kordab/WXOFPH2T/blob/main/TeamsMeeting_Get_Transcript.png)
+![Alt text](https://github.com/jinan-kordab/AIOps/blob/main/TeamsMeeting_Get_Transcript.png)
