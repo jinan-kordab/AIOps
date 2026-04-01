@@ -1,0 +1,65 @@
+<html>
+    <head>
+        <title>FONT</title>
+        <style>
+            .cyber-grid {
+              display: grid;
+              grid-template-columns: repeat(9, 1fr);
+              gap: 1.2rem;
+              padding: 2rem;
+              background: #0f0f0f;
+              border: 1px solid #00ff9d;
+            }
+            
+            .glyph-cell {
+              width: 4.8rem;
+              height: 4.8rem;
+              display: grid;
+              place-items: center;
+              background: #ffffff;
+              border: 1px solid #00ff9d33;
+              font-family: 'Cyber', monospace;
+              font-weight: 700;
+              font-size: 1.8rem;
+              position: relative;
+              box-shadow: 0 0 12px #00ff9d22;
+            }
+            
+            .glyph-cell::after {
+              content: attr(data-char);
+              position: absolute;
+              bottom: -1.8rem;
+              font-size: 0.6rem;
+              color: #00ff9d;
+            }
+          </style>
+    </head>
+<body>
+<div class="specimen-container">
+    <!-- Alphabet Grid -->
+    <section class="cyber-grid">
+      <div class="glyph-cell">⟁ A</div> <div class="glyph-cell">⎌ B</div> <div class="glyph-cell">⌗ C</div>
+      <div class="glyph-cell">⍟ D</div> <div class="glyph-cell">⌖ E</div> <div class="glyph-cell">⎅ F</div>
+      <div class="glyph-cell">⌾ G</div> <div class="glyph-cell">⍎ H</div> <div class="glyph-cell">⌯ I</div>
+      <div class="glyph-cell">⍜ J</div> <div class="glyph-cell">⌬ K</div> <div class="glyph-cell">⎋ L</div>
+      <div class="glyph-cell">⍗ M</div> <div class="glyph-cell">⎈ N</div> <div class="glyph-cell">⌻ O</div>
+      <div class="glyph-cell">⍕ P</div> <div class="glyph-cell">⌲ Q</div> <div class="glyph-cell">⍖ R</div>
+      <div class="glyph-cell">⌶ S</div> <div class="glyph-cell">⎇ T</div> <div class="glyph-cell">⍑ U</div>
+      <div class="glyph-cell">⌸ V</div> <div class="glyph-cell">⍓ W</div> <div class="glyph-cell">⍀ X</div>
+      <div class="glyph-cell">⌭ Y</div> <div class="glyph-cell">⎊ Z</div>
+    </section>
+  
+    <!-- Technical Specifications -->
+    <div class="tech-data">
+      <div class="data-row">
+        <span>Character Set:</span>
+        <span class="led">ISO 8859-1</span>
+      </div>
+      <div class="data-row">
+        <span>Grid Unit:</span>
+        <span class="led">12×12mm</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

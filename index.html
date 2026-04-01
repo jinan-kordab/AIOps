@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviation Work Order AI — Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  body{
+    width:1920px; height:1080px;
+    overflow:hidden;
+    background:#060a14;
+    font-family:'Inter',-apple-system,sans-serif;
+    color:#e0e6f0;
+    position:relative;
+  }
+
+  /* ═══ SVG ═══ */
+  svg.conn{position:absolute;top:0;left:0;width:1920px;height:1080px;z-index:1;pointer-events:none;}
+  .fp{fill:none;stroke-width:2.4;stroke-dasharray:8 6;stroke-linecap:round;opacity:0;}
+  .fp.vis{opacity:1;}
+  .fp.cyan{stroke:#fdd835;filter:drop-shadow(0 0 4px #fdd83588);}
+  .fp.orange{stroke:#ff7043;filter:drop-shadow(0 0 4px #ff704388);}
+  .fp.purple{stroke:#ab47bc;filter:drop-shadow(0 0 4px #ab47bc88);}
+  .fp.blue{stroke:#ec407a;filter:drop-shadow(0 0 4px #ec407a88);}
+  .fp.teal{stroke:#7c4dff;filter:drop-shadow(0 0 4px #7c4dff88);}
+  .fp.green{stroke:#66bb6a;filter:drop-shadow(0 0 4px #66bb6a88);}
+  .fp.amber{stroke:#ffa726;filter:drop-shadow(0 0 4px #ffa72688);}
+  .fp.red{stroke:#ef5350;filter:drop-shadow(0 0 4px #ef535088);}
+  @keyframes mf{to{stroke-dashoffset:-28;}}
+  @keyframes mb{to{stroke-dashoffset:28;}}
+  .mf{animation:mf .8s linear infinite;}
+  .mb{animation:mb .8s linear infinite;}
+  .fd{fill:#fff;filter:drop-shadow(0 0 6px #5eb8ff);opacity:0;}
+  .fd.vis{opacity:1;}
+  .al{font-family:'Inter',sans-serif;font-size:9px;font-weight:600;fill:#7888aa;opacity:0;transition:opacity .6s ease;}
+  .al.vis{opacity:1;}
+
+  /* ═══ UI ═══ */
+  .ui{position:relative;z-index:2;width:1920px;height:1080px;}
+
+  .node{
+    position:absolute;
+    background:rgba(10,16,30,0.92);
+    border-radius:14px;
+    backdrop-filter:blur(12px);
+    display:flex;flex-direction:column;
+    text-align:center;
+    align-items:center;justify-content:center;
+    opacity:0;transform:scale(0.85);
+    transition:all .6s cubic-bezier(.23,1,.32,1);
+    padding:14px 16px 18px;
+  }
+  .node.vis{opacity:1;transform:scale(1);}
+  .node .icon{font-size:24px;line-height:1;margin-bottom:3px;}
+  .node .title{font-size:12.5px;font-weight:700;line-height:1.25;}
+  .node .desc{font-size:10px;color:#8898b8;margin-top:4px;line-height:1.4;font-weight:400;}
+  .type-badge{display:inline-block;font-size:7px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-bottom:5px;}
+
+  /* Action */
+  .node.action{border:2px solid;}
+  .node.action::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;border-radius:14px 14px 0 0;opacity:.9;}
+  /* Decision */
+  .node.decision{border:2.5px solid;border-radius:8px;background:rgba(15,20,35,0.95);}
+  .node.decision::after{content:'';position:absolute;top:0;left:0;width:100%;height:100%;border-radius:8px;background:linear-gradient(135deg,rgba(255,167,38,0.06),transparent);pointer-events:none;}
+  /* Info */
+  .node.info{border:2px dashed;}
+
+  /* List blocks */
+  .node.lb{text-align:left;align-items:flex-start;padding:14px 18px 18px;}
+  .node.lb .title{margin-bottom:6px;}
+  .node.lb .li{display:flex;align-items:center;gap:8px;font-size:10.5px;font-weight:500;color:#c0cde0;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+  .node.lb .li:last-child{border-bottom:none;}
+  .node.lb .li .lic{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
+
+  /* Colors */
+  .c-cy{border-color:#fdd83566!important;}.c-cy::before{background:#fdd835!important;}.c-cy.vis{box-shadow:0 0 30px #fdd8351a,inset 0 0 20px #fdd83508;}.c-cy .type-badge{background:rgba(253,216,53,.15);color:#fdd835;}
+  .c-or{border-color:#ff704366!important;}.c-or::before{background:#ff7043!important;}.c-or.vis{box-shadow:0 0 30px #ff70431a,inset 0 0 20px #ff704308;}.c-or .type-badge{background:rgba(255,112,67,.15);color:#ff7043;}
+  .c-pu{border-color:#ab47bc66!important;}.c-pu::before{background:#ab47bc!important;}.c-pu.vis{box-shadow:0 0 30px #ab47bc1a,inset 0 0 20px #ab47bc08;}.c-pu .type-badge{background:rgba(171,71,188,.15);color:#ab47bc;}
+  .c-bl{border-color:#ec407a66!important;}.c-bl::before{background:#ec407a!important;}.c-bl.vis{box-shadow:0 0 30px #ec407a1a,inset 0 0 20px #ec407a08;}.c-bl .type-badge{background:rgba(236,64,122,.15);color:#ec407a;}
+  .c-tl{border-color:#7c4dff66!important;}.c-tl::before{background:#7c4dff!important;}.c-tl.vis{box-shadow:0 0 30px #7c4dff1a,inset 0 0 20px #7c4dff08;}.c-tl .type-badge{background:rgba(124,77,255,.15);color:#7c4dff;}
+  .c-gn{border-color:#66bb6a66!important;}.c-gn::before{background:#66bb6a!important;}.c-gn.vis{box-shadow:0 0 30px #66bb6a1a,inset 0 0 20px #66bb6a08;}.c-gn .type-badge{background:rgba(102,187,106,.15);color:#66bb6a;}
+  .c-am{border-color:#ffa72666!important;}.c-am::before{background:#ffa726!important;}.c-am.vis{box-shadow:0 0 30px #ffa7261a,inset 0 0 20px #ffa72608;}.c-am .type-badge{background:rgba(255,167,38,.15);color:#ffa726;}
+  .c-rd{border-color:#ef535066!important;}.c-rd::before{background:#ef5350!important;}.c-rd.vis{box-shadow:0 0 30px #ef53501a,inset 0 0 20px #ef535008;}.c-rd .type-badge{background:rgba(239,83,80,.15);color:#ef5350;}
+
+  /* Callout */
+  .callout{position:absolute;background:rgba(10,16,30,.96);border-radius:12px;padding:16px 18px;opacity:0;transform:translateY(8px);transition:all .8s cubic-bezier(.23,1,.32,1);z-index:5;}
+  .callout.vis{opacity:1;transform:translateY(0);}
+  .callout .ct{font-size:13px;font-weight:800;margin-bottom:7px;}
+  .callout .cb{font-size:10px;line-height:1.6;color:#8899bb;}
+  .callout .cb strong{color:#c8d4e8;font-weight:600;}
+  .callout.mcp{border:1px solid #7c4dff55;box-shadow:0 0 35px #7c4dff12;}.callout.mcp .ct{color:#7c4dff;}
+  .callout.ag{border:1px solid #ec407a55;box-shadow:0 0 35px #ec407a12;}.callout.ag .ct{color:#ec407a;}
+  .callout.ml{border:1px solid #ff704355;box-shadow:0 0 35px #ff704312;}.callout.ml .ct{color:#ff7043;}
+  .ml-tag{display:inline-block;font-size:7px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:rgba(255,112,67,.18);color:#ff7043;border:1px solid #ff704344;margin-top:5px;}
+
+  /* Phase columns */
+  .phase-col{position:absolute;top:115px;bottom:90px;width:1px;opacity:0;transition:opacity .8s ease;}
+  .phase-col.vis{opacity:1;}
+  .phase-col::before{content:'';position:absolute;top:0;bottom:0;left:0;width:1px;background:linear-gradient(to bottom,transparent,currentColor 20%,currentColor 80%,transparent);opacity:.08;}
+  .phase-lbl{position:absolute;font-size:10px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;opacity:0;transition:opacity .8s ease;text-shadow:0 0 14px currentColor;white-space:nowrap;}
+  .phase-lbl.vis{opacity:.85;}
+  .pc-cy{color:#fdd835;} .pc-or{color:#ff7043;} .pc-pu{color:#ab47bc;} .pc-bl{color:#ec407a;} .pc-gn{color:#66bb6a;} .pc-am{color:#ffa726;}
+
+  /* Header */
+  .header{position:absolute;top:30px;left:0;right:0;text-align:center;z-index:3;opacity:0;animation:fd .9s ease .2s forwards;}
+  .header .badge{display:inline-block;background:linear-gradient(135deg,#42a5f515,#26c6da15);border:1px solid #42a5f533;border-radius:20px;padding:4px 20px;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#5eb8ff;margin-bottom:6px;}
+  .header h1{font-size:26px;font-weight:800;background:linear-gradient(135deg,#fff,#7bb8ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.2;}
+  .header .sub{font-size:12px;color:#6878a0;margin-top:4px;}
+
+  /* Footer */
+  .footer{position:absolute;bottom:16px;left:0;right:0;display:flex;justify-content:center;gap:40px;z-index:3;opacity:0;animation:fu .8s ease 8s forwards;}
+  .stat{text-align:center;}.stat .v{font-size:18px;font-weight:800;color:#fff;}.stat .v .u{font-size:10px;font-weight:400;color:#5a6a88;}.stat .l{font-size:8px;text-transform:uppercase;letter-spacing:1.5px;color:#3a4560;margin-top:1px;font-weight:600;}
+
+  .legend{position:absolute;bottom:74px;left:50%;transform:translateX(-50%);display:flex;gap:16px;z-index:3;opacity:0;animation:fu .8s ease 7.5s forwards;}
+  .legend-i{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:600;color:#5a6a88;}
+  .legend-d{width:8px;height:8px;border-radius:50%;}
+  .legend-s{width:14px;height:8px;border-radius:3px;}
+  .legend-s.sol{border:2px solid #7888a8;} .legend-s.das{border:1.5px dashed #7888a8;} .legend-s.dec{border:2.5px solid #ffa726;border-radius:3px;background:rgba(255,167,38,.1);}
+
+  @keyframes fd{from{opacity:0;transform:translateY(-15px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes fu{from{opacity:0;transform:translateY(15px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes pg{0%,100%{filter:brightness(1);}50%{filter:brightness(1.15);}}
+  .node.pulse{animation:pg 2s ease-in-out infinite;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ SVG ═══════════════════════ -->
+<svg class="conn" viewBox="0 0 1920 1080">
+<defs>
+  <marker id="ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#fdd835"/></marker>
+  <marker id="ao" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#ff7043"/></marker>
+  <marker id="ap" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#ab47bc"/></marker>
+  <marker id="ab" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#ec407a"/></marker>
+  <marker id="at" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#7c4dff"/></marker>
+  <marker id="ag" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#66bb6a"/></marker>
+  <marker id="aa" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#ffa726"/></marker>
+  <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7" fill="#ef5350"/></marker>
+</defs>
+
+<!-- ─── P1: Input → Queue ─── -->
+<path id="p1" class="fp cyan" d="M175,390 L175,440" marker-end="url(#ac)" data-delay="800"/>
+<text class="al" x="183" y="420" data-delay="800">queued</text>
+
+<!-- ─── P2: Queue → Doc Processing ─── -->
+<path id="p2" class="fp orange" d="M210,480 L290,480" marker-end="url(#ao)" data-delay="1400"/>
+<text class="al" x="225" y="474" data-delay="1400">process scans</text>
+
+<!-- ─── P3: Doc Processing → OCR (fan out 3 rows) ─── -->
+<path id="p3a" class="fp orange" d="M480,420 C510,420 530,320 558,320" marker-end="url(#ao)" data-delay="2200"/>
+<path id="p3b" class="fp orange" d="M480,460 C510,460 530,480 558,480" marker-end="url(#ao)" data-delay="2300"/>
+<path id="p3c" class="fp orange" d="M480,500 C510,500 530,640 558,640" marker-end="url(#ao)" data-delay="2400"/>
+<text class="al" x="495" y="400" data-delay="2300">split to OCR</text>
+
+<!-- ─── P4: OCR → Extractor (converge) ─── -->
+<path id="p4a" class="fp purple" d="M730,320 C760,320 780,400 810,400" marker-end="url(#ap)" data-delay="3000"/>
+<path id="p4b" class="fp purple" d="M730,480 C760,480 780,430 810,430" marker-end="url(#ap)" data-delay="3100"/>
+<path id="p4c" class="fp purple" d="M730,640 C760,640 780,460 810,460" marker-end="url(#ap)" data-delay="3200"/>
+<text class="al" x="745" y="395" data-delay="3100">merge results</text>
+
+<!-- ─── P5a: Extractor → Critic ─── -->
+<path id="p5a" class="fp blue" d="M935,430 L975,430" marker-end="url(#ab)" data-delay="3800"/>
+<text class="al" x="940" y="422" data-delay="3800">review fields</text>
+
+<!-- ─── P5b: Critic → Reconciler ─── -->
+<path id="p5b" class="fp blue" d="M1095,430 L1135,430" marker-end="url(#ab)" data-delay="4400"/>
+<text class="al" x="1098" y="422" data-delay="4400">flag disputes</text>
+
+<!-- ─── P6: Critic ↔ MCP (bidirectional, vertical) ─── -->
+<path id="p6a" class="fp teal" d="M1040,475 C1040,530 1040,545 1040,570" marker-end="url(#at)" data-delay="4000"/>
+<text class="al" x="1050" y="530" data-delay="4000">query tools</text>
+<path id="p6b" class="fp teal mb" d="M1025,570 C1025,545 1025,530 1025,475" data-delay="4100"/>
+<text class="al" x="985" y="530" data-delay="4100">results</text>
+
+<!-- ─── P7: Reconciler → Validation ─── -->
+<path id="p7" class="fp green" d="M1258,430 L1310,430" marker-end="url(#ag)" data-delay="5200"/>
+<text class="al" x="1260" y="422" data-delay="5200">verified data</text>
+
+<!-- ─── P8: Validation → Router ─── -->
+<path id="p8" class="fp amber" d="M1490,430 L1550,430" marker-end="url(#aa)" data-delay="6200"/>
+<text class="al" x="1498" y="422" data-delay="6200">score fields</text>
+
+<!-- ─── P9: Router → Outputs (fan out) ─── -->
+<path id="p9a" class="fp green" d="M1680,400 C1710,400 1730,310 1758,310" marker-end="url(#ag)" data-delay="6800"/>
+<text class="al" x="1700" y="295" data-delay="6800">high confidence</text>
+<path id="p9b" class="fp amber" d="M1680,430 L1758,430" marker-end="url(#aa)" data-delay="6900"/>
+<text class="al" x="1700" y="445" data-delay="6900">medium</text>
+<path id="p9c" class="fp red" d="M1680,460 C1710,460 1730,550 1758,550" marker-end="url(#ar)" data-delay="7000"/>
+<text class="al" x="1700" y="570" data-delay="7000">low confidence</text>
+
+<!-- Animated traveling dots -->
+<circle class="fd" r="3.5" data-path="p1"  data-delay="1000" data-speed="800"/>
+<circle class="fd" r="3.5" data-path="p2"  data-delay="1600" data-speed="1000"/>
+<circle class="fd" r="3.5" data-path="p3b" data-delay="2500" data-speed="1200"/>
+<circle class="fd" r="3.5" data-path="p4b" data-delay="3300" data-speed="1200"/>
+<circle class="fd" r="3.5" data-path="p5a" data-delay="4000" data-speed="700"/>
+<circle class="fd" r="3.5" data-path="p5b" data-delay="4600" data-speed="700"/>
+<circle class="fd" r="3.5" data-path="p6a" data-delay="4200" data-speed="900"/>
+<circle class="fd" r="3.5" data-path="p7"  data-delay="5400" data-speed="800"/>
+<circle class="fd" r="3.5" data-path="p8"  data-delay="6400" data-speed="800"/>
+<circle class="fd" r="3.5" data-path="p9a" data-delay="7000" data-speed="1000"/>
+<circle class="fd" r="3.5" data-path="p9b" data-delay="7100" data-speed="800"/>
+<circle class="fd" r="3.5" data-path="p9c" data-delay="7200" data-speed="1000"/>
+</svg>
+
+<!-- ═══════════════════════ UI ═══════════════════════ -->
+<div class="ui">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="badge">Agentic AI &middot; System Architecture</div>
+  <h1>Aviation Work Order — Intelligent Automation Pipeline</h1>
+  <div class="sub">Scanned PDFs → AI Extraction → Human Verified → Maintenance System &nbsp;|&nbsp; © Jinan Kordab</div>
+</div>
+
+<!-- ═══ PHASE LABELS (top of each column) ═══ -->
+<div class="phase-lbl pc-cy" style="left:115px; top:108px;" data-delay="600">PHASE 1 &mdash; INGEST</div>
+<div class="phase-lbl pc-or" style="left:310px; top:108px;" data-delay="1200">PHASE 2 &mdash; PROCESS</div>
+<div class="phase-lbl pc-pu" style="left:563px; top:108px;" data-delay="2000">PHASE 3 &mdash; OCR</div>
+<div class="phase-lbl pc-bl" style="left:820px; top:108px;" data-delay="2800">PHASE 4 &mdash; AI AGENTS</div>
+<div class="phase-lbl pc-gn" style="left:1315px; top:108px;" data-delay="5000">PHASE 5 &mdash; VALIDATE</div>
+<div class="phase-lbl pc-am" style="left:1555px; top:108px;" data-delay="6000">PHASE 6 &mdash; ROUTE</div>
+
+<!-- Phase column dividers -->
+<div class="phase-col pc-cy" style="left:258px;" data-delay="600"></div>
+<div class="phase-col pc-or" style="left:538px;" data-delay="1200"></div>
+<div class="phase-col pc-pu" style="left:790px;" data-delay="2000"></div>
+<div class="phase-col pc-bl" style="left:1290px;" data-delay="2800"></div>
+<div class="phase-col pc-gn" style="left:1530px;" data-delay="5000"></div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COL 1: INGEST                              -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="node info c-cy" style="left:95px; top:300px; width:160px;" data-delay="600">
+  <span class="type-badge">INPUT</span>
+  <span class="icon">📄</span>
+  <span class="title">Scanned PDFs</span>
+  <span class="desc">~200/week<br>Handwritten + typed<br>3–5 pages each</span>
+</div>
+
+<div class="node action c-cy" style="left:85px; top:445px; width:180px;" data-delay="1000">
+  <span class="type-badge">ACTION</span>
+  <span class="title">⚡ Queue &amp; Schedule</span>
+  <span class="desc">Email listener, shared folder<br>watch, web upload<br>→ Redis Streams</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COL 2: DOCUMENT PROCESSING                -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="node action lb c-or" style="left:292px; top:360px; width:230px;" data-delay="1600">
+  <span class="type-badge">ACTION</span>
+  <span class="title">📑 Document Processing</span>
+  <div class="li"><span class="lic">🖨️</span>Convert each page to high-res image</div>
+  <div class="li"><span class="lic">🔧</span>Straighten, clean &amp; improve scan quality</div>
+  <div class="li"><span class="lic">🖼️</span>Describe embedded photos with AI</div>
+  <span class="ml-tag">🟠 MATLAB — Image Processing</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COL 3: OCR (3 stacked)                    -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="node action c-pu" style="left:558px; top:278px; width:170px;" data-delay="2400">
+  <span class="type-badge">ACTION</span>
+  <span class="icon">👁️</span>
+  <span class="title">Text Recognition</span>
+  <span class="desc">Reads handwritten<br>and typed text</span>
+</div>
+<div class="node action c-pu" style="left:558px; top:438px; width:170px;" data-delay="2500">
+  <span class="type-badge">ACTION</span>
+  <span class="icon">📐</span>
+  <span class="title">Location Mapping</span>
+  <span class="desc">Locates each word<br>on the page</span>
+</div>
+<div class="node action c-pu" style="left:558px; top:598px; width:170px;" data-delay="2600">
+  <span class="type-badge">ACTION</span>
+  <span class="icon">🔤</span>
+  <span class="title">Character Correction</span>
+  <span class="desc">Fixes misread letters<br>and numbers</span>
+  <span class="ml-tag">🟠 MATLAB — Deep Learning CNN</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COL 4: AutoGen AGENTS (3 horizontal)      -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="node action c-bl" style="left:812px; top:365px; width:120px;" data-delay="3400">
+  <span class="type-badge">AGENT</span>
+  <span class="icon">🤖</span>
+  <span class="title">Extractor</span>
+  <span class="desc">Reads text, fills in<br>all structured fields</span>
+</div>
+<div class="node action c-bl" style="left:975px; top:365px; width:120px;" data-delay="3800">
+  <span class="type-badge">AGENT</span>
+  <span class="icon">🔍</span>
+  <span class="title">Critic</span>
+  <span class="desc">Checks every field<br>for errors</span>
+</div>
+<div class="node action c-bl" style="left:1137px; top:365px; width:120px;" data-delay="4200">
+  <span class="type-badge">AGENT</span>
+  <span class="icon">⚖️</span>
+  <span class="title">Reconciler</span>
+  <span class="desc">Fixes only the<br>disputed fields</span>
+</div>
+
+<!-- MCP Tool Servers (below Critic) -->
+<div class="node action lb c-tl" style="left:920px; top:572px; width:230px;" data-delay="4400">
+  <span class="type-badge">ACTION &mdash; REAL-TIME LOOKUP</span>
+  <span class="title">🔌 MCP Tool Servers</span>
+  <div class="li"><span class="lic">✈️</span>Check aircraft registration is valid</div>
+  <div class="li"><span class="lic">🔩</span>Verify part numbers in catalog</div>
+  <div class="li"><span class="lic">📋</span>Confirm safety directives are current</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COL 5: VALIDATION                         -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="node action lb c-gn" style="left:1310px; top:345px; width:195px;" data-delay="5600">
+  <span class="type-badge">ACTION — RULE-BASED</span>
+  <span class="title">✅ Deterministic Validation</span>
+  <div class="li"><span class="lic">🔢</span>Tail number format check</div>
+  <div class="li"><span class="lic">🔩</span>Parts exist in catalog</div>
+  <div class="li"><span class="lic">📋</span>Compliance cross-check</div>
+  <div class="li"><span class="lic">🔄</span>Duplicate detection</div>
+  <span class="ml-tag">🟠 MATLAB — Confidence Calibration</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- COL 6: ROUTING + OUTPUTS                  -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="node decision c-am" style="left:1560px; top:385px; width:140px;" data-delay="6400">
+  <span class="type-badge">DECISION</span>
+  <span class="title">🎯 Confidence<br>Router</span>
+  <span class="desc">How confident is<br>the AI in each field?</span>
+</div>
+
+<!-- 3 outputs stacked right -->
+<div class="node action c-gn" style="left:1760px; top:268px; width:140px;" data-delay="7000">
+  <span class="type-badge">OUTPUT</span>
+  <span class="title">🟢 Auto-Approve</span>
+  <span class="desc">Push directly<br>to maintenance system</span>
+</div>
+<div class="node action c-am" style="left:1760px; top:393px; width:140px;" data-delay="7100">
+  <span class="type-badge">OUTPUT</span>
+  <span class="title">🟡 Human Review</span>
+  <span class="desc">Clerk checks<br>flagged fields</span>
+</div>
+<div class="node action c-rd" style="left:1760px; top:510px; width:140px;" data-delay="7200">
+  <span class="type-badge">OUTPUT</span>
+  <span class="title">🔴 Manual Entry</span>
+  <span class="desc">Clerk types<br>from scratch</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- CALLOUTS (below the flow)                  -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="callout ag" style="left:815px; top:132px; width:340px; padding:10px 18px 10px;" data-delay="3600">
+  <div class="ct">🔵 AutoGen — Multi-Agent AI (Phase 4)</div>
+  <div class="cb" style="font-size:9.5px;line-height:1.45;">
+    <strong>3 AI agents</strong> work as a team to cross-verify each extraction:<br>
+    <strong>Extractor</strong> — reads all OCR text and fills in structured fields (aircraft ID, parts, hours).<br>
+    <strong>Critic</strong> — reviews every field against the original scan and queries <strong>MCP tools</strong> to verify against real databases.<br>
+    <strong>Reconciler</strong> — re-processes only flagged fields, producing a final high-confidence result.<br>
+    Catches AI hallucinations <strong>before</strong> they reach validation. Adds ~15–25s latency, boosts accuracy by 2–4%.
+  </div>
+</div>
+
+<div class="callout ml" style="left:85px; top:590px; width:310px; padding:10px 18px 10px;" data-delay="1800">
+  <div class="ct">🟠 MATLAB — Signal &amp; Image Processing (Phases 2–3 &amp; 5)</div>
+  <div class="cb" style="font-size:9.5px;line-height:1.45;">
+    <strong>4 MATLAB toolboxes</strong> run behind the scenes across multiple phases:<br>
+    <strong>Image Processing</strong> — deskew, denoise &amp; enhance scans before OCR sees them.<br>
+    <strong>Deep Learning</strong> — CNN classifier fixes aviation-specific character confusion (0/O, 1/l, B/8, 5/S).<br>
+    <strong>Statistics</strong> — calibrates raw AI confidence scores into true probabilities (Platt scaling).<br>
+    <strong>Predictive Maintenance</strong> — Weibull failure analysis &amp; parts demand forecasting from work order history.<br>
+    Runs via MATLAB Engine API for Python inside the pipeline. ~$50/wk license.
+  </div>
+</div>
+
+<div class="callout mcp" style="left:815px; top:770px; width:340px;" data-delay="4600">
+  <div class="ct">🟢 MCP — Model Context Protocol (Phase 4)</div>
+  <div class="cb">
+    A <strong>standard tool interface</strong> that gives AI agents access to real company databases <strong>during extraction</strong>, not after.<br><br>
+    <strong>Where:</strong> Plugs into the Critic agent — called in real-time while checking fields.<br>
+    <strong>What:</strong> Validates aircraft IDs against Fleet Registry, parts against catalog, safety directives against compliance database.<br>
+    <strong>Why:</strong> Catches wrong data one step earlier. Model-agnostic — works with any LLM, no vendor lock-in.
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-i"><div class="legend-s sol"></div>Action</div>
+  <div class="legend-i"><div class="legend-s dec"></div>Decision</div>
+  <div class="legend-i"><div class="legend-s das"></div>Info / Input</div>
+  <div class="legend-i" style="margin-left:10px;"><div class="legend-d" style="background:#fdd835;"></div>Ingest</div>
+  <div class="legend-i"><div class="legend-d" style="background:#ff7043;"></div>Process</div>
+  <div class="legend-i"><div class="legend-d" style="background:#ab47bc;"></div>OCR</div>
+  <div class="legend-i"><div class="legend-d" style="background:#ec407a;"></div>AutoGen</div>
+  <div class="legend-i"><div class="legend-d" style="background:#7c4dff;"></div>MCP</div>
+  <div class="legend-i"><div class="legend-d" style="background:#ff7043;"></div>MATLAB</div>
+  <div class="legend-i"><div class="legend-d" style="background:#66bb6a;"></div>Validate</div>
+  <div class="legend-i"><div class="legend-d" style="background:#ffa726;"></div>Route</div>
+</div>
+
+
+</div>
+
+<!-- BG CANVAS -->
+<canvas id="bg" style="position:absolute;top:0;left:0;width:1920px;height:1080px;z-index:0;"></canvas>
+
+<script>
+// Background
+const c=document.getElementById('bg'),x=c.getContext('2d');c.width=1920;c.height=1080;
+const bp=Array.from({length:50},()=>({x:Math.random()*1920,y:Math.random()*1080,vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,r:Math.random()*1.2+.4,a:Math.random()*.1+.03}));
+function db(){
+  x.clearRect(0,0,1920,1080);
+  x.strokeStyle='rgba(255,255,255,0.01)';x.lineWidth=1;
+  for(let i=0;i<1920;i+=60){x.beginPath();x.moveTo(i,0);x.lineTo(i,1080);x.stroke();}
+  for(let i=0;i<1080;i+=60){x.beginPath();x.moveTo(0,i);x.lineTo(1920,i);x.stroke();}
+  bp.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=1920;if(p.x>1920)p.x=0;if(p.y<0)p.y=1080;if(p.y>1080)p.y=0;x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle=`rgba(94,184,255,${p.a})`;x.fill();});
+  for(let i=0;i<bp.length;i++)for(let j=i+1;j<bp.length;j++){const dx=bp[i].x-bp[j].x,dy=bp[i].y-bp[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<120){x.beginPath();x.moveTo(bp[i].x,bp[i].y);x.lineTo(bp[j].x,bp[j].y);x.strokeStyle=`rgba(94,184,255,${0.04*(1-d/120)})`;x.lineWidth=.5;x.stroke();}}
+  requestAnimationFrame(db);
+}
+db();
+
+// Reveal
+document.querySelectorAll('.node,.phase-lbl,.callout,.al,.phase-col').forEach(e=>{const d=parseInt(e.dataset.delay)||0;setTimeout(()=>e.classList.add('vis'),d);});
+
+// Marching ants
+document.querySelectorAll('.fp').forEach(p=>{const d=parseInt(p.dataset.delay)||0;setTimeout(()=>{p.classList.add('vis');if(!p.classList.contains('mb'))p.classList.add('mf');},d);});
+
+// Dots
+document.querySelectorAll('.fd').forEach(dot=>{
+  const pid=dot.dataset.path,d=parseInt(dot.dataset.delay)||0,spd=parseInt(dot.dataset.speed)||1500;
+  const pe=document.getElementById(pid);if(!pe)return;
+  function go(){const len=pe.getTotalLength();let st=null;dot.classList.add('vis');
+    function step(ts){if(!st)st=ts;const pr=Math.min((ts-st)/spd,1),pt=pe.getPointAtLength(pr*len);
+    dot.setAttribute('cx',pt.x);dot.setAttribute('cy',pt.y);
+    dot.style.opacity=pr<.1?pr*10:pr>.85?(1-pr)/.15:1;
+    if(pr<1)requestAnimationFrame(step);else{dot.style.opacity=0;setTimeout(go,2000+Math.random()*3000);}}
+    requestAnimationFrame(step);}
+  setTimeout(go,d);
+});
+
+// Counters
+setTimeout(()=>{document.querySelectorAll('.counter').forEach(el=>{const t=parseInt(el.dataset.target),s=performance.now();function tick(n){const p=Math.min((n-s)/1500,1);el.textContent=Math.round(t*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(tick);}requestAnimationFrame(tick);});},8500);
+
+// Pulse
+function pa(){document.querySelectorAll('.node.vis').forEach((n,i)=>{setTimeout(()=>{n.classList.add('pulse');setTimeout(()=>n.classList.remove('pulse'),2000);},i*120);});}
+setTimeout(()=>{pa();setInterval(pa,10000);},9000);
+</script>
+</body>
+</html>
